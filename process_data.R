@@ -1,6 +1,7 @@
 library(tidyverse)
 library(fs)
 library(stringr)
+library(readr)
 
 #Loading in Mr. Schroeder's Data
 
@@ -43,7 +44,8 @@ upshot <- x_with_variables %>%
   mutate(race = paste(state, district, sep = "")) %>%
   mutate(race = str_to_upper(race)) %>%
   group_by(race) %>%
-  mutate(interviews = n())
+  mutate(interviews = n()) %>%
+  ungroup()
   
 #Filtered out Senate and Gov races, and used the same methodology as I did with Mr.Schroeder's data to
 #created a Race variable with state abbreviation and district number.
@@ -82,32 +84,48 @@ poll_data <- cleanedup %>%
 #and I added two lines, group_by(race) and a mutate to determine my total number of interviews.
 
 somecollege <- upshot %>%
-  select(race, interviews, educ4) %>%
+  group_by(race, interviews) %>%
   filter(educ4 == "Some College Educ.") %>%
-  mutate(somecollege_per = (100*(n()/interviews)))
+  mutate(somecollege_per = (100*(n()/interviews))) %>%
+  ungroup() %>%
+  select(race, somecollege_per) %>%
+  filter(!(duplicated(race, fromLast = TRUE)))
 
 fouryear <- upshot %>%
-  select(race, interviews, educ4) %>%
+  group_by(race, interviews) %>%
   filter(educ4 == "4-year College Grad.") %>%
-  mutate(fouryear_per = (100*(n()/interviews)))
+  mutate(fouryear_per = (100*(n()/interviews))) %>%
+  ungroup() %>%
+  select(race, fouryear_per) %>%
+  filter(!(duplicated(race, fromLast = TRUE)))
 
 postgrad <- upshot %>%
-  select(race, interviews, educ4) %>%
+  group_by(race, interviews) %>%
   filter(educ4 == "Postgraduate Degree") %>%
-  mutate(postgrad_per = (100*(n()/interviews)))
+  mutate(postgrad_per = (100*(n()/interviews))) %>%
+  ungroup() %>%
+  select(race, postgrad_per) %>%
+  filter(!(duplicated(race, fromLast = TRUE)))
 
 highschool <- upshot %>%
-  select(race, interviews, educ4) %>%
+  group_by(race, interviews) %>%
   filter(educ4 == "High School Grad. or Less") %>%
-  mutate(highschool_per = (100*(n()/interviews)))
+  mutate(highschool_per = (100*(n()/interviews))) %>%
+  ungroup() %>%
+  select(race, highschool_per) %>%
+  filter(!(duplicated(race, fromLast = TRUE)))
 
 refused <- upshot %>%
-  select(race, interviews, educ4) %>%
+  group_by(race, interviews) %>%
   filter(educ4 == "[DO NOT READ] Don't know/Refused") %>%
-  mutate(refused_per = (100*(n()/interviews)))
+  mutate(refused_per = (100*(n()/interviews))) %>%
+  ungroup() %>%
+  select(race, refused_per) %>%
+  filter(!(duplicated(race, fromLast = TRUE)))
 
 #Above, I created variables for each of the responses to educ4, and was able to check the proportion each is
-#of the total interviews.  I checked my work by addding up the percenages for a race, and it added up to 100%.
+#of the total interviews.  I checked my work by addding up the percenages for a race, and it added up to 100%. 
+#Edit: I explain further down below why I had to filter out the duplicates.
 
 joindata <- tidydata %>%
   inner_join(poll_data, by = "race") %>%
@@ -121,7 +139,29 @@ unique <- joindata %>%
 
 #I looked at joindata, and there were multiple duplicate rows who differed only by wave.  After some googling,
 #I found a very useful link: https://stat.ethz.ch/R-manual/R-devel/library/base/html/duplicated.html 
-#Thus, I was able to now have joined data of my results and polls, and have gotten rid of duplicates.
+#Thus, I was able to now have joined data of my results and polls, and have gotten rid of duplicates.  The 
+#fromLast part allows me to keep the last wave.  I also ended up using the filtering out of duplicates in
+#lines 86 through 124, because otherwise, I would get the percentages for each interview, not for each
+#race.
+
+fulldata <- unique %>%
+  mutate(error= dem_adv_actual - dem_adv_polls) %>%
+  select(race, win_party, error) %>%
+  left_join(somecollege, by = "race") %>%
+  left_join(fouryear, by = "race") %>%
+  left_join(postgrad, by = "race") %>%
+  left_join(highschool, by = "race") %>%
+  left_join(refused, by = "race") 
+
+#I created my error variable, which is the main investigative point in the problem set.  I then used a series
+#of left joins, which added the columns with the percentages of the polled people for each level of 
+#education.  I ran into trouble here - the left joins would create literally millions of observations and my 
+#RStudio would crash.  My issue was that I didn't ungroup or count(educ4) when making my variables for each 
+#response.  The n() in mutate still allowed to me get the proporitons, but ungroup and count made it go back to 
+#54 observations.  In addition, a weird issue I have is that to multiply by 10,000 instead of 100 to get a 
+#percentage.  
+
+write_rds(fulldata, path = "/Users/serhiysokhan/Desktop/Gov1005/ps_7_starter/fulldata")
 
 
 
