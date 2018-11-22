@@ -41,7 +41,9 @@ x_with_variables <- x %>%
 upshot <- x_with_variables %>%
   filter(!(district %in% c("se", "go"))) %>%
   mutate(race = paste(state, district, sep = "")) %>%
-  mutate(race = str_to_upper(race)) 
+  mutate(race = str_to_upper(race)) %>%
+  group_by(race) %>%
+  mutate(interviews = n())
   
 #Filtered out Senate and Gov races, and used the same methodology as I did with Mr.Schroeder's data to
 #created a Race variable with state abbreviation and district number.
@@ -62,7 +64,7 @@ poll_data <- cleanedup %>%
 #and now my Race variable is associated with the other variables. I then weighted the responses by summing the 
 #final weights, giving me the total weight for the Dem, Rep, and Und responses for each race.  Then, I used
 #spread, which created columns with the total weights for each response, which I just created. Then, in line
-# 54, I used code from my second midterm to turn all NAs into 0s, because I was going to need to add when 
+# 56, I used code from my second midterm to turn all NAs into 0s, because I was going to need to add when 
 #creating my Democratic advantage in the polls variable.  I then used a simple mutate function to create
 #my variable, one that's similar to what we did on the second midterm.  I then checked the data to see if the 
 #numbers in my real Dem advantage and polling Dem advantage were similar, and they were.
@@ -76,6 +78,50 @@ poll_data <- cleanedup %>%
 #political scientists have identified.  For example, those who are highly educated are more likely to vote and 
 #more likely to vote Democratic.  Consequently, I wanted to investigate if the error between the results and 
 #polls can be attributed to the educational makeup of the surveys.  I need to create variables to find the
-#proportion of those interviewed for each level of education.
+#proportion of those interviewed for each level of education.  First, I went back to the code chunk at line 41,
+#and I added two lines, group_by(race) and a mutate to determine my total number of interviews.
+
+somecollege <- upshot %>%
+  select(race, interviews, educ4) %>%
+  filter(educ4 == "Some College Educ.") %>%
+  mutate(somecollege_per = (100*(n()/interviews)))
+
+fouryear <- upshot %>%
+  select(race, interviews, educ4) %>%
+  filter(educ4 == "4-year College Grad.") %>%
+  mutate(fouryear_per = (100*(n()/interviews)))
+
+postgrad <- upshot %>%
+  select(race, interviews, educ4) %>%
+  filter(educ4 == "Postgraduate Degree") %>%
+  mutate(postgrad_per = (100*(n()/interviews)))
+
+highschool <- upshot %>%
+  select(race, interviews, educ4) %>%
+  filter(educ4 == "High School Grad. or Less") %>%
+  mutate(highschool_per = (100*(n()/interviews)))
+
+refused <- upshot %>%
+  select(race, interviews, educ4) %>%
+  filter(educ4 == "[DO NOT READ] Don't know/Refused") %>%
+  mutate(refused_per = (100*(n()/interviews)))
+
+#Above, I created variables for each of the responses to educ4, and was able to check the proportion each is
+#of the total interviews.  I checked my work by addding up the percenages for a race, and it added up to 100%.
+
+joindata <- tidydata %>%
+  inner_join(poll_data, by = "race") %>%
+  filter(win_party != "UNDECIDED")
+
+#Above, I used an inner join between the results and the polling data.  I also filtered out undecided races
+#because I want to have winning party by color in my graphic later.
+
+unique <- joindata %>%
+  filter(!(duplicated(race, fromLast = TRUE)))
+
+#I looked at joindata, and there were multiple duplicate rows who differed only by wave.  After some googling,
+#I found a very useful link: https://stat.ethz.ch/R-manual/R-devel/library/base/html/duplicated.html 
+#Thus, I was able to now have joined data of my results and polls, and have gotten rid of duplicates.
+
 
 
